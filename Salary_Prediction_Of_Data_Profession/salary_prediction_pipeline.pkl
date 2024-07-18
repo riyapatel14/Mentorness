@@ -1,0 +1,70 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LinearRegression
+import joblib
+
+# Create a mock dataset
+np.random.seed(0)
+data = {
+    'AGE': np.random.randint(22, 60, size=100),
+    'SEX': np.random.choice(['Male', 'Female'], size=100),
+    'RATINGS': np.random.uniform(1, 5, size=100),
+    'LEAVES USED': np.random.randint(0, 30, size=100),
+    'LEAVES REMAINING': np.random.randint(0, 30, size=100),
+    'PAST EXP': np.random.uniform(0, 20, size=100),
+    'FIRST NAME': ['Name']*100,
+    'LAST NAME': ['Surname']*100,
+    'DOJ': pd.date_range(start='1/1/2000', periods=100, freq='365D'),
+    'CURRENT DATE': pd.date_range(start='1/1/2024', periods=100, freq='365D'),
+    'SALARY': np.random.uniform(30000, 120000, size=100),
+    'DESIGNATION': np.random.choice(['Analyst', 'Senior Analyst', 'Manager', 'Senior Manager'], size=100)
+}
+
+df = pd.DataFrame(data)
+
+# Feature engineering
+df['TENURE'] = (pd.to_datetime(df['CURRENT DATE']) - pd.to_datetime(df['DOJ'])).dt.days
+df['AGE_PERFORMANCE'] = df['AGE'] * df['RATINGS']
+df.drop(['FIRST NAME', 'LAST NAME', 'DOJ', 'CURRENT DATE'], axis=1, inplace=True)
+
+# Fill missing values
+df['AGE'].fillna(df['AGE'].mean(), inplace=True)
+df['RATINGS'].fillna(df['RATINGS'].mean(), inplace=True)
+df['LEAVES USED'].fillna(df['LEAVES USED'].mean(), inplace=True)
+df['LEAVES REMAINING'].fillna(df['LEAVES REMAINING'].mean(), inplace=True)
+df['TENURE'].fillna(df['TENURE'].mean(), inplace=True)
+df['AGE_PERFORMANCE'].fillna(df['AGE_PERFORMANCE'].mean(), inplace=True)
+df['SEX'].fillna(df['SEX'].mode()[0], inplace=True)
+
+# Define features and target variable
+X = df.drop('SALARY', axis=1)
+y = df['SALARY']
+
+# Define preprocessing steps
+numeric_features = ['AGE', 'RATINGS', 'LEAVES USED', 'LEAVES REMAINING', 'PAST EXP', 'TENURE', 'AGE_PERFORMANCE']
+numeric_transformer = Pipeline(steps=[('scaler', StandardScaler())])
+
+categorical_features = ['SEX', 'DESIGNATION']
+categorical_transformer = Pipeline(steps=[('onehot', OneHotEncoder(handle_unknown='ignore'))])
+
+# Combine preprocessing steps
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features)
+    ])
+
+# Create preprocessing and training pipeline
+pipeline = Pipeline(steps=[('preprocessor', preprocessor),
+                           ('model', LinearRegression())])
+
+# Train the model
+pipeline.fit(X, y)
+
+# Save the preprocessor and model to disk
+joblib.dump(pipeline, '/mnt/data/salary_prediction_pipeline.pkl')
+
+'/mnt/data/salary_prediction_pipeline.pkl'
